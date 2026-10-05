@@ -41,11 +41,13 @@ var sky;
 var stars;
 var score = 0;
 var statText;
+var scoreText;
 var alive=1 ;
 var enemyBullet;
 var firingTimer=0;
 var firingTimer2 = 0;
 var dead = 0;
+var levelComplete = false;
 var resetButton;
 var explosions;
 var jetpack = 100;
@@ -90,9 +92,8 @@ function create() {
     game.physics.arcade.enable(ledge); 
     ledge.body.collideWorldBounds = true;
     ledge.body.checkCollision.down = true;
-    ledge.body.kinematic=true;
     ledge.leftbounds = ledge.body.x-340;  
-    ledge.rightbounds = ledge.body.x + 256;   //move 256 pixel right
+    ledge.rightbounds = ledge.body.x + 256;
     ledge.velo=50; 
 
     ledge2 = game.add.group();
@@ -105,9 +106,8 @@ function create() {
     game.physics.arcade.enable(ledge2); 
     ledge2.body.collideWorldBounds = true;
     ledge2.body.checkCollision.down = true;
-    ledge2.body.kinematic=true;
     ledge2.topbounds = ledge2.body.y-280;  
-    ledge2.bottombounds = ledge2.body.y + 150;   //move 256 pixel right
+    ledge2.bottombounds = ledge2.body.y + 150;
     ledge2.velo=60; 
    
     //ledge3
@@ -121,9 +121,8 @@ function create() {
     game.physics.arcade.enable(ledge3); 
     ledge3.body.collideWorldBounds = true;
     ledge3.body.checkCollision.down = true;
-    ledge3.body.kinematic=true;
     ledge3.leftbounds = ledge3.body.x-240;  
-    ledge3.rightbounds = ledge3.body.x + 256;   //move 256 pixel right
+    ledge3.rightbounds = ledge3.body.x + 256;
     ledge3.velo=60;
     //ledge 4
 
@@ -137,9 +136,8 @@ function create() {
     game.physics.arcade.enable(ledge4); 
     ledge4.body.collideWorldBounds = true;
     ledge4.body.checkCollision.down = true;
-    ledge4.body.kinematic=true;
     ledge4.topbounds = ledge4.body.y-180;  
-    ledge4.bottombounds = ledge4.body.y+ 126;   //move 256 pixel right
+    ledge4.bottombounds = ledge4.body.y+ 126;
     ledge4.velo=70; 
     
     //ledge 5
@@ -153,9 +151,8 @@ function create() {
     game.physics.arcade.enable(ledge5); 
     ledge5.body.collideWorldBounds = true;
     ledge5.body.checkCollision.down = true;
-    ledge5.body.kinematic=true;
     ledge5.leftbounds = ledge5.body.x - 160;  
-    ledge5.rightbounds = ledge5.body.x + 250;   //move 256 pixel right
+    ledge5.rightbounds = ledge5.body.x + 250;
     ledge5.velo=60; 
 
 
@@ -170,9 +167,8 @@ function create() {
     ledge6.body.collideWorldBounds = true;
     ledge6.body.checkCollision.up = true;
     ledge6.body.checkCollision.down = false;
-    ledge6.body.kinematic=true;
     ledge6.leftbounds = ledge6.body.x-250;  
-    ledge6.rightbounds = ledge6.body.x + 350;   //move 256 pixel right
+    ledge6.rightbounds = ledge6.body.x + 350;
     ledge6.velo=50; 
   
    // ledge.resizeWorld();
@@ -215,6 +211,9 @@ function create() {
     statText = game.add.text(game.world.centerX,player.position.y,' ', { font: '44px Arial', fill: '#fff',align:'center' });
     statText.anchor.setTo(0.5, 0.5);
     statText.visible = false;
+    //  Score
+    scoreText = game.add.text(5, 15, 'Score: 0', { font: '18px Courier', fill: '#fff' });
+    scoreText.fixedToCamera = true;
     //  Lives
     lives = game.add.group();
 
@@ -293,18 +292,15 @@ function update() {
         player.body.velocity.y = -350;
 
     }
-    if(hitLegde ||  hitLegde2 ){
+    if(hitLegde ||  hitLegde2 || hitLegde3 || hitLegde4 || hitLegde5 || hitLegde6 ){
         dead = 0;
     }
-    if(hitLegde6){
+    if(hitLegde6 && !levelComplete){
+        levelComplete = true;
         enemyBullets.callAll('kill');
 
-        statText.text=" Level 2 Complete";
+        statText.text=" Game Complete!";
         statText.visible = true;
-        //game.input.onTap.addOnce(restart,this);
-      //  game.input.onDown.addOnce(restart);
-        resetButton.onDown.addOnce(restart);
-      //  game.paused = true;
     }
     var live = lives.getFirstAlive();
     if(hitPlatform && live){
@@ -328,15 +324,7 @@ function update() {
         statText.position.y = player.position.y;
     if(lives.countLiving()<1)
     {
-        player.kill();
-        enemyBullets.callAll('kill');
-
-        statText.text=" Game Over \n press SPACEBAR to restart";
-        statText.visible = true;
-        //game.input.onTap.addOnce(restart,this);
-        game.input.onDown.addOnce(restart);
-        resetButton.onDown.addOnce(restart);
-        game.paused = true;
+        gameOver();
     }
     if (game.time.now > firingTimer)
     {
@@ -367,7 +355,9 @@ function enemyFires(shooter){
         {
            // var shooter=villain;
             // And fire the bullet from this enemy
-            enemyBullet.reset(shooter.body.x, shooter.body.y);
+            // Bullets must spawn from world coordinates. Levels 2/3 pin the
+            // shooters with fixedToCamera, so add the camera scroll back on.
+            enemyBullet.reset(shooter.x + game.camera.x, shooter.y + game.camera.y);
             enemyBullet.angle = 90;
             game.physics.arcade.moveToObject(enemyBullet,player,180);
             firingTimer = game.time.now + 1500;
@@ -376,10 +366,10 @@ function enemyFires(shooter){
     
 }
 function enemyHitsPlayer (player,bullet) {
-    
+
     bullet.kill();
 
-   live = lives.getFirstAlive();
+    var live = lives.getFirstAlive();
 
     if (live)
     {
@@ -387,22 +377,37 @@ function enemyHitsPlayer (player,bullet) {
     }
     //  And create an explosion :)
     var explosion = explosions.getFirstExists(false);
-    explosion.reset(player.body.x, player.body.y);
-    explosion.play('kaboom', 30, false, true);
+    if (explosion)
+    {
+        explosion.reset(player.body.x, player.body.y);
+        explosion.play('kaboom', 30, false, true);
+    }
 
     // When the player dies
     if (lives.countLiving() < 1)
     {
-        player.kill();
-        enemyBullets.callAll('kill');
-        statText.text=" Game Over \n press SPACEBAR to restart";
-        statText.visible = true;
-       // game.input.onTap.addOnce(restart,this);
-       game.input.onDown.addOnce(restart);
-        resetButton.onDown.addOnce(restart);
-        game.paused = true;
+        gameOver();
     }
 
+}
+
+// Single game-over handler so the SPACE / restart listeners are only ever
+// registered once, and only while the game is actually over.
+function gameOver() {
+
+    if (game.paused) {
+        return;
+    }
+
+    player.kill();
+    enemyBullets.callAll('kill');
+
+    statText.text=" Game Over \n press SPACEBAR to restart";
+    statText.visible = true;
+
+    game.input.onDown.addOnce(restart);
+    resetButton.onDown.addOnce(restart);
+    game.paused = true;
 }
 
 function setPlayer (player) {
@@ -422,13 +427,6 @@ function createStars(){
         star.body.collideWorldBounds = false;
         star.checkWorldBounds= true;
         star.outOfBoundsKill = true;
-        star.body.kinematic=true;
-        star.leftbounds = star.body.x-256;  
-        star.rightbounds = star.body.x + 256;   //move 256 pixel right
-        star.velo=50;     
-        star.body.sprite.velo *= -1;
-        star.body.sprite.velo *= -1;  // reverse speed
-    // star.body.checkCollision.down = false;
         if(i%2==0){
             star.body.gravity.x = Math.random()*5;
             star.body.bounce.x = (0.7 + Math.random() * 1.5)%6;
@@ -446,24 +444,25 @@ function createStars(){
 }
 
 function restart () {
-     
-  //    createStars();
-//resume game state
+
+    //resume game state
     game.paused = false;
-    
+
     lives.callAll('revive');
     stars.removeAll();
+    createStars();
+    enemyBullets.callAll('kill');
     //revives the player
     player.revive();
-    //player.body.velocity.y= -350;
+    player.frame = 4;
+    player.body.velocity.setTo(0);
     player.position.x= ledge.position.x+30;
     player.position.y=ledge.position.y-40;
     dead = 0;
-    score = 0; 
+    score = 0;
+    levelComplete = false;
     //hides the text
     statText.visible = false;
-   // ledge.body.reset=true;
-
 }
 
 function  movePlatforms(ledge){
@@ -486,9 +485,7 @@ function collectStar (player, star) {
 }
 
 function render() {
-
-  game.debug.text('Score: ' +score,5,15);
-
+    scoreText.text = 'Score: ' + score;
 }
 
 </script>
