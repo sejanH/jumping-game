@@ -48,6 +48,10 @@ var firingTimer=0;
 var firingTimer2 = 0;
 var dead = 0;
 var levelComplete = false;
+var jumpWasDown = false;
+var jumpBufferUntil = 0;
+var lastGroundedAt = -1000;
+var wasOnGround = false;
 var resetButton;
 var explosions;
 var jetpack = 100;
@@ -214,6 +218,8 @@ function create() {
     //  Score
     scoreText = game.add.text(5, 15, 'Score: 0', { font: '18px Courier', fill: '#fff' });
     scoreText.fixedToCamera = true;
+    var controlsText = game.add.text(5, 42, '← / → move   ↑ jump   Collect stars   Reach the top', { font: '14px Arial', fill: '#fff' });
+    controlsText.fixedToCamera = true;
     //  Lives
     lives = game.add.group();
 
@@ -243,6 +249,7 @@ function create() {
 }
 
 function update() {
+    if (levelComplete) return;
     sky.tilePosition.y += 0.5;
     // ledge.body.position.y+=0.2;
     //  Collide the player and the stars with the platforms
@@ -286,32 +293,41 @@ function update() {
         player.frame = 4;
     }
 
-    //  Allow the player to jump if they are touching the ground.
-    if (cursors.up.isDown && player.body.touching.down && (hitPlatform || hitLegde ||  hitLegde2 || hitLegde3 || hitLegde4 || hitLegde5 ))
-    {
-        player.body.velocity.y = -350;
-
+    if (cursors.up.isDown && !jumpWasDown) {
+        jumpBufferUntil = game.time.now + 140;
     }
-    if(hitLegde ||  hitLegde2 || hitLegde3 || hitLegde4 || hitLegde5 || hitLegde6 ){
+    jumpWasDown = cursors.up.isDown;
+    if (player.body.touching.down && (hitPlatform || hitLegde || hitLegde2 || hitLegde3 || hitLegde4 || hitLegde5 || hitLegde6)) {
+        lastGroundedAt = game.time.now;
+    }
+    if (game.time.now <= jumpBufferUntil && game.time.now - lastGroundedAt <= 140) {
+        player.body.velocity.y = -350;
+        jumpBufferUntil = 0;
+    }
+    if(hitLegde || hitLegde2 || hitLegde3 || hitLegde4 || hitLegde5 || hitLegde6 ){
         dead = 0;
+        wasOnGround = false;
     }
     if(hitLegde6 && !levelComplete){
         levelComplete = true;
         enemyBullets.callAll('kill');
 
-        statText.text=" Game Complete!";
+        statText.text="Game Complete!\nClick or press SPACE to play again";
         statText.visible = true;
+        game.input.onDown.addOnce(restart);
+        resetButton.onDown.addOnce(restart);
     }
+    if (levelComplete) return;
     var live = lives.getFirstAlive();
-    if(hitPlatform && live){
-        dead++;
-        hitPlatform = false;
-        if(dead>1)
-        {
-            live.kill();
-            dead = 0;
-
+    if(hitPlatform && !hitLegde && !hitLegde2 && !hitLegde3 && !hitLegde4 && !hitLegde5 && !hitLegde6 && live && !wasOnGround){
+        live.kill();
+        wasOnGround = true;
+        if(lives.countLiving() > 0){
+            player.body.velocity.setTo(0);
+            player.position.x = ledge.position.x + 30;
+            player.position.y = ledge.position.y - 40;
         }
+    }
         
     }
         
@@ -343,8 +359,7 @@ game.physics.arcade.overlap(enemyBullets, player, enemyHitsPlayer, null, this);
  movePlatforms(ledge5);
  movePlatforms(ledge6);
 }
-}
-
+ 
 function enemyFires(shooter){
 //  Grab the first bullet we can from the pool
       
@@ -461,6 +476,10 @@ function restart () {
     dead = 0;
     score = 0;
     levelComplete = false;
+    jumpWasDown = false;
+    jumpBufferUntil = 0;
+    lastGroundedAt = -1000;
+    wasOnGround = false;
     //hides the text
     statText.visible = false;
 }
